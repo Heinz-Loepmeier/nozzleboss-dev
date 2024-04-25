@@ -47,7 +47,11 @@ def travel(coords, next, travel_speed, extrusion_speed):
     
     return gcode_cmd
 
-
+        
+def shared_edge_boolean(v1,v2):
+    for e in v1.link_edges: 
+        if e.other_vert(v1) is v2: 
+            return True    
 
 #only print changed axis
 def extrude(coords, next, E, F, prev_F):

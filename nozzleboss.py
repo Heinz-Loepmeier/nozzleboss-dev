@@ -323,6 +323,9 @@ def export_gcode(context):
     obj = bpy.context.active_object
     verts = read_verts(obj.data)
     edges = read_edges(obj.data)
+    bm = bmesh.new()
+    bm.from_mesh(obj.data)
+    bm.verts.ensure_lookup_table()
     #initial values
     P2=(0,0,0)
     prev_F=-1
@@ -371,45 +374,83 @@ def export_gcode(context):
         
 
             
-            
+        island_closed = shared_edge_boolean(bm.verts[e_edges[-1]], bm.verts[e_edges[0]])
         #extrude between all poitns in island
         for i in range(len(e_edges)): 
-            if i == len(e_edges)-1:#break on last segment, if you want to close segment, 'rip' the last vert
-              break
+            if i == len(e_edges)-1 and not island_closed: #dont calc last seg on open island
+                break
+        
+        #exception on last segment if segment is closed grab info from first vert of island
+            if i == len(e_edges)-1:
+                P1 = verts[e_edges[i]]
+                P2 = verts[e_edges[0]]
+                P3 = verts[h_edges[0]] 
+                 #calcE
+                dist = np.linalg.norm(P2-P1)
+                height=np.linalg.norm(P3-P2)
+                
+                width=height*1.2
+                if width<nozzle_diameter:
+                    width = nozzle_diameter*1.2
+                
+                multiplier = extrusion_weights[e_edges[0]]#
+                multiplier = remap(multiplier, nozzleboss.min_flow, nozzleboss.max_flow)
+                E_volume=dist*height*width*multiplier
+                E=E_volume/2.405281875  ##E axis in mm not mm³, 2.405 is 1mm of 1.75mm filament (r*(PI*r), 0.875*PI*0.875
+
+
+        #calcF
+
+                speed_weight =  remap(speed_weights[e_edges[i]], nozzleboss.min_speed, nozzleboss.max_speed)
+                F = extrusion_speed*speed_weight 
+
+                #check if tool color changed and append corresponding textblock
+                if tool_colors[e_edges[0]]!=prev_tool_color:
+
+                    if tool_colors[e_edges[0]]<0.5:
+                        _txt.append(read_textblock('T1'))
+                    else:
+                        _txt.append(read_textblock('T0'))  
+
+                    prev_tool_color=tool_colors[e_edges[0]]  
+            
+             
               
-
-            #coord for seg length and height
-            P1 = verts[e_edges[i]]
-            P2 = verts[e_edges[i+1]]
-            P3 = verts[h_edges[i+1]] 
-
-
-
-    #calcE
-            dist = np.linalg.norm(P2-P1)
-            height=np.linalg.norm(P3-P2)
-
-            width=nozzle_diameter*1.5
-            multiplier = extrusion_weights[e_edges[i+1]]#
-            multiplier = remap(multiplier, nozzleboss.min_flow, nozzleboss.max_flow)
-            E_volume=dist*height*width*multiplier
-            E=E_volume/2.405281875  ##E axis in mm not mm³, 2.405 is 1mm of 1.75mm filament (r*(PI*r), 0.875*PI*0.875
+            else: #usual case
+                #coord for seg length and height
+                P1 = verts[e_edges[i]]
+                P2 = verts[e_edges[i+1]]
+                P3 = verts[h_edges[i+1]] 
 
 
-    #calcF
 
-            speed_weight =  remap(speed_weights[e_edges[i]], nozzleboss.min_speed, nozzleboss.max_speed)
-            F = extrusion_speed*speed_weight 
+        #calcE
+                dist = np.linalg.norm(P2-P1)
+                height=np.linalg.norm(P3-P2)
 
-            #check if tool color changed and append corresponding textblock
-            if tool_colors[e_edges[i+1]]!=prev_tool_color:
+                width=height*1.2
+                if width<nozzle_diameter:
+                    width = nozzle_diameter*1.2
+                multiplier = extrusion_weights[e_edges[i+1]]#
+                multiplier = remap(multiplier, nozzleboss.min_flow, nozzleboss.max_flow)
+                E_volume=dist*height*width*multiplier
+                E=E_volume/2.405281875  ##E axis in mm not mm³, 2.405 is 1mm of 1.75mm filament (r*(PI*r), 0.875*PI*0.875
 
-                if tool_colors[e_edges[i+1]]<0.5:
-                    _txt.append(read_textblock('T1'))
-                else:
-                    _txt.append(read_textblock('T0'))  
 
-                prev_tool_color=tool_colors[e_edges[i+1]]   
+        #calcF
+
+                speed_weight =  remap(speed_weights[e_edges[i]], nozzleboss.min_speed, nozzleboss.max_speed)
+                F = extrusion_speed*speed_weight 
+
+                #check if tool color changed and append corresponding textblock
+                if tool_colors[e_edges[i+1]]!=prev_tool_color:
+
+                    if tool_colors[e_edges[i+1]]<0.5:
+                        _txt.append(read_textblock('T1'))
+                    else:
+                        _txt.append(read_textblock('T0'))  
+
+                    prev_tool_color=tool_colors[e_edges[i+1]]   
 
 
             _txt.append(extrude(P1, P2, E, F, prev_F)) 
