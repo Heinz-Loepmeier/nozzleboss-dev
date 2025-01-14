@@ -183,7 +183,7 @@ class NOZZLEBOSS_PT_Panel(bpy.types.Panel):
         col2=col.column(align=True) 
         col2.scale_y=1.5
         col2.separator(factor=1)
-        col2.operator("wm.gcode_import") #call it by id name, since specified, otherwise just takes class name
+        col2.operator("nozzleboss.gcode_import") #call it by id name, since specified, otherwise just takes class name
         col.separator(factor=1)
 
         
@@ -472,7 +472,7 @@ def export_gcode(context):
 
 class WM_OT_gcode_import(Operator, ImportHelper):
     """Import Gcode, travel lines don't get drawn"""
-    bl_idname = "wm.gcode_import"  
+    bl_idname = "nozzleboss.gcode_import"  
     bl_label = "Import G-code"
 
     # ImportHelper mixin class uses this
